@@ -1,36 +1,37 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from io import BytesIO
+import plotly.graph_objects as go
 
-st.set_page_config(page_title="Battery Health & Degradation Estimator", layout="centered")
+# Page configuration for a modern look
+st.set_page_config(page_title="🔋 Battery Health Simulator", layout="wide")
 
-st.title("🔋 Battery Health & Degradation Estimator (Simulated Data)")
-
+# --- Attractive Header & Subtitle ---
 st.markdown("""
-This interactive app estimates battery **State of Health (SoH)** over time based on your habits and environment.
-""")
+    <div style='text-align:center'>
+        <h1 style='color:#60D394; margin-bottom:0'>🔋 Battery Health Simulator</h1>
+        <p style='font-size:1.2rem; color:#b8b8b8; margin-top:0'>
+            Predict how your habits affect battery health over years. 
+            <br>Adjust settings and visualize your battery's future!
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Sidebar for parameter input
+# --- Sidebar: User Inputs ---
 st.sidebar.header("Customize Simulation Parameters")
 
-# User Inputs
-init_capacity = st.sidebar.number_input("Initial Battery Capacity (mAh)", min_value=500, max_value=10000, value=4000, step=100)
-charge_cycles_per_week = st.sidebar.slider("Charge Cycles per Week", min_value=1, max_value=21, value=7)
-avg_temp = st.sidebar.slider("Average Operating Temperature (°C)", min_value=10, max_value=60, value=25)
+init_capacity = st.sidebar.number_input("Initial Battery Capacity (mAh)", 500, 10000, 4000, 100)
+charge_cycles_per_week = st.sidebar.slider("Charge Cycles per Week", 1, 21, 7)
+avg_temp = st.sidebar.slider("Average Operating Temperature (°C)", 10, 60, 25)
 charging_habit = st.sidebar.selectbox(
     "Charging Habit", 
     ("Charge to 100% (Full)", "Partial charge (20-80%)", "Fast charging", "Slow charging")
 )
-depth_of_discharge = st.sidebar.slider("Average Depth of Discharge (%)", min_value=10, max_value=100, value=80)
-calendar_aging_factor = st.sidebar.slider("Calendar Aging Impact (0=none, 1=high)", min_value=0.0, max_value=1.0, value=0.2, step=0.05)
+depth_of_discharge = st.sidebar.slider("Average Depth of Discharge (%)", 10, 100, 80)
+calendar_aging_factor = st.sidebar.slider("Calendar Aging Impact (0=none, 1=high)", 0.0, 1.0, 0.2, 0.05)
+years = st.sidebar.slider("Years to Simulate", 1, 10, 5)
 
-# Simulation Duration
-years = st.sidebar.slider("Years to Simulate", 1, 10, 3)
-days = years * 365
-
-# Map charging habit to degradation factors
+# --- Map charging habit to degradation factors ---
 habit_factor = {
     "Charge to 100% (Full)": 1.0,
     "Partial charge (20-80%)": 0.6,
@@ -38,7 +39,7 @@ habit_factor = {
     "Slow charging": 0.8,
 }[charging_habit]
 
-# Basic simulation model (simplified, for demonstration)
+# --- Simulation Function ---
 def simulate_battery_soh(
     days,
     charge_cycles_per_week,
@@ -48,39 +49,34 @@ def simulate_battery_soh(
     calendar_aging_factor,
     init_capacity
 ):
-    # Daily calculations
     charge_cycles_per_day = charge_cycles_per_week / 7
     SoH = [100.0]  # percent
     times = [0]    # days
     thresholds = {80: None, 60: None}
     for day in range(1, days + 1):
-        # Cycle aging: Assume each cycle degrades SoH by a factor, affected by depth of discharge and habit
+        # Cycle aging: each cycle degrades SoH by a factor
         cycle_deg = (charge_cycles_per_day *
-                     0.005 *  # base rate per cycle
+                     0.005 *
                      (depth_of_discharge / 100) *
                      habit_factor)
-        # Temperature accelerates degradation (Arrhenius-like)
-        temp_factor = np.exp((avg_temp - 25) / 15)  # more aggressive above 25°C
-        
-        # Calendar aging (time-based, independent of cycles)
+        # Temperature effect
+        temp_factor = np.exp((avg_temp - 25) / 15)
+        # Calendar aging
         cal_deg = 0.00005 * calendar_aging_factor
-
-        # Total degradation per day
         degrade = (cycle_deg * temp_factor) + cal_deg
         next_soh = SoH[-1] - degrade
         SoH.append(max(next_soh, 0))
         times.append(day)
-
-        # Record when SoH crosses below thresholds
         for t in thresholds:
             if SoH[-2] >= t > next_soh and thresholds[t] is None:
                 thresholds[t] = day / 365  # years
         if next_soh <= 0:
             break
-    # Calculate remaining capacity over time
     capacity = [init_capacity * s / 100 for s in SoH]
     return np.array(times), np.array(SoH), capacity, thresholds
 
+# --- Run Simulation ---
+days = years * 365
 times, SoH, capacities, thresholds = simulate_battery_soh(
     days,
     charge_cycles_per_week,
@@ -91,41 +87,87 @@ times, SoH, capacities, thresholds = simulate_battery_soh(
     init_capacity
 )
 
-# Visualization
-fig, ax = plt.subplots()
-ax.plot(times / 365, SoH, label="State of Health (SoH) %")
-ax.axhline(80, color='orange', linestyle='--', label='80% SoH (Typical EOL)')
-ax.axhline(60, color='red', linestyle='--', label='60% SoH (Severely Degraded)')
-ax.set_xlabel("Time (Years)")
-ax.set_ylabel("State of Health (%)")
-ax.set_title("Simulated Battery Degradation Over Time")
-ax.set_ylim(0, 105)
-ax.legend()
+# --- Dynamic Battery Icon ---
+def battery_svg(soh):
+    # Color: green >80%, yellow 60-80%, red <60%
+    if soh > 80:
+        color = "#60D394"
+    elif soh > 60:
+        color = "#FFA600"
+    else:
+        color = "#FF4B4B"
+    pct = int(soh)
+    fill = 1 if pct < 0 else min(1.0, pct / 100)
+    svg = f"""
+    <svg width="110" height="44">
+      <rect x="3" y="8" rx="8" ry="8" width="80" height="28" fill="#232323" stroke="#666" stroke-width="2"/>
+      <rect x="7" y="12" rx="5" ry="5" width="{72*fill}" height="20" fill="{color}"/>
+      <rect x="85" y="18" width="15" height="8" rx="2" ry="2" fill="#888"/>
+      <text x="45" y="30" font-size="16" text-anchor="middle" fill="#eee">{pct}%</text>
+    </svg>
+    """
+    return svg
 
-# Highlight threshold crossings
-for t, val in thresholds.items():
-    if val:
-        ax.axvline(val, linestyle=":", color="gray")
-        ax.annotate(f"{t}% @ {val:.1f} yr", (val, t), textcoords="offset points", xytext=(10,10), ha='left')
+col1, col2 = st.columns([1, 3])
+with col1:
+    st.markdown(battery_svg(SoH[-1]), unsafe_allow_html=True)
+    st.markdown(f"<p style='text-align:center; font-size:1.1rem;'>Final SoH</p>", unsafe_allow_html=True)
+with col2:
+    # --- Interactive Plotly Chart ---
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=times/365, y=SoH, mode='lines+markers', 
+        name='State of Health (SoH) %', 
+        line=dict(width=3, color="#60D394")
+    ))
+    fig.add_hline(y=80, line_dash="dash", line_color="orange", annotation_text="80% SoH (Typical EOL)")
+    fig.add_hline(y=60, line_dash="dash", line_color="red", annotation_text="60% SoH (Severely Degraded)")
+    # Annotate threshold crossings
+    for t, val in thresholds.items():
+        if val:
+            fig.add_vline(x=val, line_dash="dot", line_color="#888",
+                annotation_text=f"{t}% @ {val:.1f} yr", annotation_position="top right")
+    fig.update_layout(
+        xaxis_title="Years",
+        yaxis_title="State of Health (%)",
+        title="Simulated Battery Degradation Over Time",
+        template="plotly_dark",
+        height=420,
+        margin=dict(l=30, r=20, t=50, b=40)
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
-st.pyplot(fig)
-
-# Summary
+# --- Dynamic Feedback ---
 st.markdown("### Result Summary")
-st.write(f"**Initial Capacity:** {init_capacity} mAh")
 if thresholds[80]:
-    st.write(f"- Battery drops below **80% SoH** after **{thresholds[80]:.1f} years**.")
+    st.write(f"🔶 Battery drops below **80% SoH** after **{thresholds[80]:.1f} years**.")
 else:
-    st.write("- Battery stays above 80% SoH during simulation.")
+    st.write("🟩 Battery stays above **80% SoH** during simulation.")
 if thresholds[60]:
-    st.write(f"- Battery drops below **60% SoH** after **{thresholds[60]:.1f} years**.")
+    st.write(f"🔴 Battery drops below **60% SoH** after **{thresholds[60]:.1f} years**.")
 else:
-    st.write("- Battery stays above 60% SoH during simulation.")
-
+    st.write("🟨 Battery stays above **60% SoH** during simulation.")
 st.write(f"- Final SoH after {years} years: **{SoH[-1]:.2f}%**")
 st.write(f"- Final capacity: **{capacities[-1]:.0f} mAh**")
 
-# Allow download as CSV
+if SoH[-1] < 60:
+    st.error("⚠️ Warning: Battery will degrade severely under current conditions!")
+elif SoH[-1] < 80:
+    st.warning("⚠️ Battery life is moderate. Consider lowering charge cycles, temperature, or depth of discharge.")
+else:
+    st.success("✅ Your battery health remains high under these conditions.")
+
+# --- Battery Care Tip ---
+tips = [
+    "💡 Tip: Avoid leaving your battery at 100% for long periods.",
+    "💡 Tip: High temperatures speed up battery aging.",
+    "💡 Tip: Partial charges are better than full discharges.",
+    "💡 Tip: Slow charging can extend battery lifespan.",
+    "💡 Tip: Reduce depth of discharge for better longevity."
+]
+st.info(np.random.choice(tips))
+
+# --- Download CSV ---
 csv_data = pd.DataFrame({
     "Day": times,
     "Year": times/365,
@@ -139,5 +181,3 @@ st.download_button(
     file_name="battery_simulation_results.csv",
     mime="text/csv"
 )
-
-st.info("Adjust parameters in the sidebar to see real-time updates in battery health simulation.")
