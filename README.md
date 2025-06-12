@@ -77,9 +77,9 @@ Get this simulator up and running on your machine in no time!
 Adjust the sliders and select boxes in the sidebar to define your battery's initial state and your usage habits. The chart and summary will dynamically update, showing you how these factors influence your battery's health over the years. Experiment to find the optimal settings for maximum longevity!
 
 <p align="center">
-  <img src="https://github.com/your-username/your-repo-name/blob/main/screenshot_of_app_in_action.gif" alt="Battery Simulator in action" width="700"/>
+  <img src="https://github.com/sherintht/battery_degradation_app/blob/main/%F0%9F%94%8B%20Battery%20Health%20Simulator%20%C2%B7%20Streamlit.gif" alt="Battery Simulator in action" width="700"/>
   <br>
-  <em>(Replace this with an actual GIF or screenshot of your running app!)</em>
+  <em>(an actual GIF  running app!)</em>
 </p>
 
 ---
