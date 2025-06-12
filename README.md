@@ -12,7 +12,7 @@
 
 ## 🌟 About This Project
 
-Welcome to the **Battery Health Simulator**! This interactive Streamlit application lets you explore the fascinating world of battery degradation. Ever wondered how your charging habits, temperature, or usage patterns affect your device's battery life over time? This simulator provides a clear, data-driven visualization, helping you understand and predict your battery's State of Health (SoH) and capacity.
+Welcome to the **Battery Health Simulator**! This interactive Streamlit application lets you explore the fascinating world of battery degradation. Ever wondered how your charging habits, temperature, or usage patterns affect your device's battery life over time? This simulator provides a clear, data-driven visualization, helping you understand and predict your battery's State of Health (SoH) and capacity.Predicts battery failure using NASA dataset with data processing, EDA, SMOTE, ML model tuning, and SHAP analysis. Deployed via Flask API, Streamlit, and Power BI dashboards. Offers a robust, interpretable solution for proactive battery management in EVs and energy systems
 
 This project showcases my expertise in:
 
